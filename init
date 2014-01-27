@@ -1,5 +1,6 @@
 #!/bin/bash
 
+if [ -n "$POSTGIS_PORT_5432_TCP_ADDR" ]; then 
 POSTGIS_HOST=$POSTGIS_PORT_5432_TCP_ADDR
 export POSTGIS_HOST
 REDIS_HOST=$REDIS_PORT_6379_TCP_ADDR
@@ -8,6 +9,7 @@ REDIS_PORT=6379
 POSTGIS_PORT=5432
 export REDIS_PORT
 export POSTGIS_PORT
+fi
 # docker init file. This will bring up all the services: celery, uwsgi, sshd, and nginx
 service nginx restart
 /usr/sbin/sshd
