@@ -1,23 +1,24 @@
 import json
 import cPickle
 import shutil
-from django.utils.timezone import utc
 from collections import OrderedDict
 from hashlib import md5
+from datetime import datetime
+from urllib2 import urlopen
+import time
+import math
+from sqlite3 import dbapi2 as db
+
+from django.utils.timezone import utc
 from ga_resources import models as m, dispatch
 from ga_resources.models import DataResource
 import os
 from django.conf import settings as s
 import sh
-from datetime import datetime
-from urllib2 import urlopen
 import requests
 import re
 from django.conf import settings
 from ga_resources import predicates
-import time
-import math
-from sqlite3 import dbapi2 as db
 
 
 try:
@@ -358,6 +359,8 @@ def compile_mapfile(name, srs, stylesheets, *layers):
 
 
 LAYER_CACHE_PATH = os.path.join(s.MEDIA_ROOT, '.cache', '_cached_layers')
+if not os.path.exists(LAYER_CACHE_PATH):
+    sh.mkdir('-p', LAYER_CACHE_PATH)
 
 def cache_entry_name(layers, srs, styles, bgcolor=None, transparent=True, query=None):
     d = OrderedDict(layers=layers, srs=srs, styles=styles, bgcolor=bgcolor, transparent=transparent)
@@ -660,7 +663,6 @@ class CacheManager(object):
 
 
     def remove_caches_for_resource(self, resource):
-        from ga_resources.models import RenderedLayer, DataResource
         """Iterate over all caches using a particular resource and burn them"""
         for layer in m.RenderedLayer.objects.filter(data_resource__slug = resource):
             self.remove_caches_for_layer(layer.slug)

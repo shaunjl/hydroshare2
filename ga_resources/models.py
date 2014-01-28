@@ -1,21 +1,38 @@
-from django.contrib.auth.models import User
+import datetime
+from logging import getLogger
+import json
+
+from django.contrib.auth.models import User, Group
+from django.db.models.signals import post_save
+from django.contrib.gis.db import models
+from django.utils.timezone import utc
 from mezzanine.pages.models import Page
 from mezzanine.core.models import RichText
-from django.contrib.gis.db import models
-from django.conf import settings as s
-import importlib
+from mezzanine.conf import settings as s
+from mezzanine.pages.page_processors import processor_for
 from timedelta.fields import TimedeltaField
 import sh
 import os
 from osgeo import osr
-import datetime
-from django.utils.timezone import utc
-from logging import getLogger
-import json
-from .utils import get_user
+import importlib
+
 
 _log = getLogger('ga_resources')
 
+def get_user(request):
+    from tastypie.models import ApiKey
+    """authorize user based on API key if it was passed, otherwise just use the request's user.
+
+    :param request:
+    :return: django.contrib.auth.User
+    """
+    if 'api_key' in request.REQUEST:
+        api_key = ApiKey.objects.get(key=request.REQUEST['api_key'])
+        return api_key.user
+    elif request.user.is_authenticated():
+        return User.objects.get(pk=request.user.pk)
+    else:
+        return request.user
 
 class PagePermissionsMixin(object):
     def storage_key(self, kfor):
@@ -48,35 +65,35 @@ class PagePermissionsMixin(object):
 
 
     def add_edit_user(self, user):
-        self.permissions_store.sadd(self.storage_key('edit-users'), user.pk)
+        self.permissions_store.sadd(self.storage_key('edit-users'), user if isinstance(user, int) else user.pk)
 
 
     def add_view_user(self, user):
-        self.permissions_store.sadd(self.storage_key('view-users'), user.pk)
+        self.permissions_store.sadd(self.storage_key('view-users'), user if isinstance(user, int) else user.pk)
 
 
     def add_edit_group(self, group):
-        self.permissions_store.sadd(self.storage_key('edit-groups'), group.pk)
+        self.permissions_store.sadd(self.storage_key('edit-groups'), group if isinstance(group, int) else group.pk)
 
 
     def add_view_group(self, group):
-        self.permissions_store.sadd(self.storage_key('view-groups'), group.pk)
+        self.permissions_store.sadd(self.storage_key('view-groups'), group if isinstance(group, int) else group.pk)
 
 
     def remove_edit_user(self, user):
-        self.permissions_store.srem(self.storage_key('edit-users'), user.pk)
+        self.permissions_store.srem(self.storage_key('edit-users'), user if isinstance(user, int) else user.pk)
 
 
     def remove_view_user(self, user):
-        self.permissions_store.srem(self.storage_key('view-users'), user.pk)
+        self.permissions_store.srem(self.storage_key('view-users'), user if isinstance(user, int) else user.pk)
 
 
     def remove_edit_group(self, group):
-        self.permissions_store.srem(self.storage_key('edit-groups'), group.pk)
+        self.permissions_store.srem(self.storage_key('edit-groups'), group if isinstance(group, int) else group.pk)
 
 
     def remove_view_group(self, group):
-        self.permissions_store.srem(self.storage_key('view-groups'), group.pk)
+        self.permissions_store.srem(self.storage_key('view-groups'), group if isinstance(group, int) else group.pk)
 
     def can_add(self, request):
         return self.can_change(request)
@@ -88,23 +105,27 @@ class PagePermissionsMixin(object):
     def can_change(self, request):
         user = get_user(request)
 
+        ret = True
+
         if user.is_authenticated():
             if not self.owner:
-                return user.is_superuser
+                ret = user.is_superuser
             elif user.pk == self.owner.pk:
-                return True
+                ret = True
             else:
                 users = self.edit_users
                 groups = self.edit_groups
 
                 if len(users) > 0 and user.pk in users:
-                    return True
+                    ret = True
                 elif len(groups) > 0:
-                    return user.groups.filter(pk__in=groups).exists()
+                    ret = user.groups.filter(pk__in=groups).exists()
                 else:
-                    return False
+                    ret =  False
         else:
-            return False
+            ret = False
+
+        return ret
 
 
     def can_view(self, request):
@@ -130,6 +151,80 @@ class PagePermissionsMixin(object):
         else:
             return False
 
+    def copy_permissions_to_children(self, clear_existing=True, recurse=False):
+        # pedantically implemented.  should use set logic to minimize changes, but ptobably not important
+        for child in self.children:
+            if isinstance(child, PagePermissionsMixin):
+                if clear_existing:
+                    for u in child.edit_users:
+                        child.remove_edit_user(u)
+                    for u in child.view_users:
+                        child.remove_view_user(u)
+                    for g in child.edit_groups:
+                        child.remove_edit_group(g)
+                    for g in child.view_groups:
+                        child.remove_view_group(g)
+
+                for u in self.edit_users:
+                    child.add_edit_user(u)
+                for u in self.view_users:
+                    child.add_view_user(u)
+                for g in self.edit_groups:
+                    child.add_edit_group(g)
+                for g in self.view_groups:
+                    child.add_view_group(g)
+
+                child.public = self.public
+                child.owner = self.owner
+                child.save()
+                    
+                if recurse:
+                    child.copy_permissions_to_children(clear_existing=clear_existing, recurse=recurse)
+
+
+    def copy_permissions_from_parent(self, clear_existing=True):
+        parent = self.parent.get_content_model()
+        if isinstance(parent, PagePermissionsMixin):
+            if clear_existing:
+                for u in self.edit_users:
+                    self.remove_edit_user(u)
+                for u in self.view_users:
+                    self.remove_view_user(u)
+                for g in self.edit_groups:
+                    self.remove_edit_group(g)
+                for g in self.view_groups:
+                    self.remove_view_group(g)
+
+            for u in self.parent.edit_users:
+                self.add_edit_user(u)
+            for u in self.parent.view_users:
+                self.add_view_user(u)
+            for g in self.parent.edit_groups:
+                self.add_edit_group(g)
+            for g in self.parent.view_groups:
+                self.add_view_group(g)
+
+            self.public = self.parent.public
+            self.owner = self.parent.owner
+            self.save()
+
+
+# this should be used as the page processor for anything with pagepermissionsmixin
+# page_processor_for(MyPage)(ga_resources.views.page_permissions_page_processor)
+def page_permissions_page_processor(request, page):
+    page = page.get_content_model()
+    edit_groups = Group.objects.filter(pk__in=page.edit_groups)
+    view_groups = Group.objects.filter(pk__in=page.view_groups)
+    edit_users = User.objects.filter(pk__in=page.edit_users)
+    view_users = User.objects.filter(pk__in=page.view_users)
+
+    return {
+        "edit_groups": edit_groups,
+        "view_groups": view_groups,
+        "edit_users": edit_users,
+        "view_users": view_users,
+    }
+
 
 class CatalogPage(Page, PagePermissionsMixin):
     """Maintains an ordered catalog of data.  These pages are rendered specially but otherwise are not special."""
@@ -151,10 +246,21 @@ class CatalogPage(Page, PagePermissionsMixin):
     def ensure_page(cls, *titles, **kwargs):
         parent = kwargs.get('parent', None)
         child = kwargs.get('child', None)
-        p, created = cls.objects.get_or_create(title=titles[0], parent=parent, **kwargs)
+        if child:
+            del kwargs['child']
+        if parent:
+            del kwargs['parent']
+
+        if not cls.objects.filter(title=titles[0], parent=parent).exists():
+            p = cls.objects.create(title=titles[0], parent=parent, **kwargs)
+        else:
+            p = cls.objects.get(title=titles[0], parent=parent)
 
         for title in titles[1:]:
-            p, created = cls.objects.get_or_create(title=title, parent=p, **kwargs)
+            if not cls.objects.filter(title=title, parent=p).exists():
+                p = cls.objects.create(title=title, parent=p, **kwargs)
+            else:
+                p = cls.objects.get(title=title, parent=p)
 
         if child:
             child.parent = p
@@ -165,7 +271,30 @@ class CatalogPage(Page, PagePermissionsMixin):
     def save(self, *args, **kwargs):
         return super(CatalogPage, self).save(*args, **kwargs)
 
+def set_permissions_for_new_catalog_page(sender, instance, created, *args, **kwargs):
+    if instance.parent and created:
+        instance.copy_permissions_from_parent()
 
+@processor_for(CatalogPage)
+def catalog_page_processor(request, page):
+    viewable_children = []
+    viewable_siblings = []
+    for child in page.children.all():
+        if not hasattr(page, 'can_view') or page.can_view(request):
+            viewable_children.append(child)
+
+    if page.parent:
+        for child in page.parent.children.exclude(slug=page.slug):
+            if not hasattr(page, 'can_view') or page.can_view(request):
+                viewable_siblings.append(child)
+
+    ctx = page_permissions_page_processor(request, page)
+    ctx['viewable_children'] = viewable_children
+    ctx['viewable_siblings'] = viewable_siblings
+
+    return ctx
+
+set_permissions = post_save.connect(set_permissions_for_new_catalog_page, sender=CatalogPage, weak=False)
 
 
 class DataResource(Page, RichText, PagePermissionsMixin):
@@ -207,6 +336,8 @@ class DataResource(Page, RichText, PagePermissionsMixin):
 
     @property
     def srs(self):
+        if not self.native_srs:
+            self.driver_instance.compute_fields()
         srs = osr.SpatialReference()
         srs.ImportFromProj4(self.native_srs.encode('ascii'))
         return srs
@@ -304,8 +435,6 @@ class Style(Page, PagePermissionsMixin):
     owner = models.ForeignKey(User, null=True)
 
     def modified(self):
-        print "purging cache for {slug}".format(slug=self.slug)
-
         if s.WMS_CACHE_DB.exists(self.slug):
             cached_filenames = s.WMS_CACHE_DB.smembers(self.slug)
             for filename in cached_filenames:

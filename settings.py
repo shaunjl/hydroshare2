@@ -250,6 +250,9 @@ INSTALLED_APPS = (
     #"mezzanine.twitter",
     "mezzanine.accounts",
     "mezzanine.mobile",
+    "tastypie",
+    "dublincore",
+    "hs_core"
 )
 
 # List of processors used by RequestContext to populate the context.
