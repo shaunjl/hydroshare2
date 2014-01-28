@@ -1,0 +1,17 @@
+#!/bin/bash
+
+if [ -n "$POSTGIS_PORT_5432_TCP_ADDR" ]; then 
+POSTGIS_HOST=$POSTGIS_PORT_5432_TCP_ADDR
+export POSTGIS_HOST
+REDIS_HOST=$REDIS_PORT_6379_TCP_ADDR
+export REDIS_HOST
+REDIS_PORT=6379
+POSTGIS_PORT=5432
+export REDIS_PORT
+export POSTGIS_PORT
+fi
+cd /home/docker/hydroshare
+su docker -c "git pull"
+createdb -U docker -h $POSTGIS_HOST docker
+psql -U docker -h $POSTGIS_HOST -c 'create extension postgis;'
+python manage.py syncdb --migrate --noinput
