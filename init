@@ -13,8 +13,13 @@ fi
 # docker init file. This will bring up all the services: celery, uwsgi, sshd, and nginx
 service nginx restart
 /usr/sbin/sshd
+cd /home/docker/dublincore
+su docker -c "git pull"
 cd /home/docker/hydroshare
 su docker -c "git pull"
+cd hs_core
+su docker -c "git pull"
+cd ..
 python manage.py syncdb
 python manage.py migrate
 python manage.py collectstatic --noinput
