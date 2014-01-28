@@ -15,3 +15,4 @@ su docker -c "git pull"
 createdb -U docker -h $POSTGIS_HOST docker
 psql -U docker -h $POSTGIS_HOST -c 'create extension postgis;'
 python manage.py syncdb --migrate --noinput
+python manage.py createsuperuser
