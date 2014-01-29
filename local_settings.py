@@ -25,6 +25,11 @@ WMS_CACHE_DB = redis.Redis(
     host=REDIS_HOST,
     port=REDIS_PORT,
     db=5)
+PERMISSIONS_DB= redis.Redis(
+    host=REDIS_HOST,
+    port=REDIS_PORT,
+    db=6)
+   
 
 IPYTHON_SETTINGS=[]
 IPYTHON_BASE='/home/docker/hydroshare/static/media/ipython-notebook'
