@@ -1,0 +1,9 @@
+[submodule "hs_core"]
+    path = hs_core
+    url = https://github.com/hydroshare/hs_core.git
+[submodule "django-dublincore"]
+    path = dublincore
+    url = https://github.com/hydroshare/django-dublincore.git
+[submodule "dublincore"]
+	path = dublincore
+	url = https://github.com/hydroshare/django-dublincore.git
