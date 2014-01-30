@@ -12,8 +12,17 @@ export POSTGIS_PORT
 fi
 cd /home/docker/hydroshare
 su docker -c "git pull"
+su docker -c "git submodule init"
+su docker -c "git submodule update"
+cd dublincore
+python setup.py install
+cd /home/docker/hydroshare
+echo "dropdb:psql docker password:"
 dropdb -U docker -h $POSTGIS_HOST docker
+echo "createdb: pgsql password:"
 createdb -U docker -h $POSTGIS_HOST docker
+echo "psql password"
 psql -U docker -h $POSTGIS_HOST -c 'create extension postgis;'
 python manage.py syncdb --migrate --noinput
+echo "add superuser"
 python manage.py createsuperuser
