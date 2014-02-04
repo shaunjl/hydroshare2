@@ -13,12 +13,16 @@ fi
 # docker init file. This will bring up all the services: celery, uwsgi, sshd, and nginx
 service nginx restart
 /usr/sbin/sshd
-cd /home/docker/django-dublincore
-su docker -c "git pull"
+#cd /home/docker/django-dublincore
+#su docker -c "git pull"
 cd /home/docker/hydroshare
 su docker -c "git pull"
-cd hs_core
-su docker -c "git pull"
+su docker -c "git submodule init"
+su docker -c "git submodule update"
+cd dublincore
+python setup.py install
+#cd hs_core
+#su docker -c "git pull"
 cd ..
 python manage.py syncdb
 python manage.py migrate
