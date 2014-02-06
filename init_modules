@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# ##########################################################
+# this file should be called by the init_github script. #
+# ##########################################################
+echo "initializing modules"
+cd /home/docker/hydroshare
+cd dublincore
+python setup.py install
