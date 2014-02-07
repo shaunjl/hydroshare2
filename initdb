@@ -4,6 +4,7 @@
 # if this file is edited, then a new hydroshare container must be pushed. #
 #  developers should modify init_steps                                    #
 ###########################################################################
+cd /home/docker/hydroshare
 ./init_github
 
 ./initdb_steps
