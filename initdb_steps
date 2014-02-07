@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# ##########################################################
+# this file should be called after the init_github, and init_modules scripts. #
+# ##########################################################
+if [ -n "$POSTGIS_PORT_5432_TCP_ADDR" ]; then
+POSTGIS_HOST=$POSTGIS_PORT_5432_TCP_ADDR
+export POSTGIS_HOST
+REDIS_HOST=$REDIS_PORT_6379_TCP_ADDR
+export REDIS_HOST
+REDIS_PORT=6379
+POSTGIS_PORT=5432
+export REDIS_PORT
+export POSTGIS_PORT
+fi
+
+cd /home/docker/hydroshare
+echo "dropdb:psql docker password:"
+dropdb -U docker -h $POSTGIS_HOST docker
+echo "createdb: pgsql password:"
+createdb -U docker -h $POSTGIS_HOST docker
+echo "psql password"
+psql -U docker -h $POSTGIS_HOST -c 'create extension postgis;'
+python manage.py syncdb --migrate --noinput
+echo "add superuser"
+python manage.py createsuperuser

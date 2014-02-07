@@ -2,8 +2,13 @@
 
 ###########################################################################
 # if this file is edited, then a new hydroshare container must be pushed. #
-#  developers should modify init_steps                                    #
 ###########################################################################
-./init_github
 
-./initdb_steps
+cd /home/docker/hydroshare
+# let advertise what branch
+su docker -c "git status"
+su docker -c "git pull"
+su docker -c "git submodule init"
+su docker -c "git submodule update"
+
+./init_modules
