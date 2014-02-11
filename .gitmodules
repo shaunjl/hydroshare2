@@ -4,9 +4,6 @@
 [submodule "dublincore"]
     path = dublincore
     url = https://github.com/hydroshare/django-dublincore.git
-[submodule "hs_user_org"]
-	path = hs_user_org
-	url = https://github.com/valentinedwv/hs_user_org.git
 [submodule "hs/hs_user_org"]
 	path = hs/hs_user_org
 	url = https://github.com/valentinedwv/hs_user_org.git

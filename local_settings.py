@@ -76,6 +76,8 @@ HYDROSHARE_APPS = (
     "ga_resources",
     "ga_irods",
     "ga_interactive",
-    "hs_core"
+    "hs_core",
+    "hs_user_org",
+    #"mezzanine.accounts", already in settings.py
 )
 
