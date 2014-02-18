@@ -253,7 +253,9 @@ INSTALLED_APPS = (
     "mezzanine.mobile",
     "tastypie",
     "dublincore",
-    "hs_core"
+    "hs_core",
+    "hs",
+    "hs.hs_user_org"
 )
 
 # List of processors used by RequestContext to populate the context.
